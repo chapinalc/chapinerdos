@@ -1,0 +1,613 @@
+\documentclass[11pt]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[margin=1.08in]{geometry}
+\usepackage{microtype}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage[nameinlink,noabbrev]{cleveref}
+
+\definecolor{linkblue}{RGB}{26,77,128}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=linkblue,
+  citecolor=linkblue,
+  urlcolor=linkblue,
+  pdftitle={An adaptive packing bound for distinct consecutive sums},
+  pdfauthor={AUTHOR NAME (REPLACE BEFORE RELEASE)},
+  pdfsubject={A finite upper bound related to Erdos Problem 357},
+  pdfkeywords={consecutive sums, additive combinatorics, Golomb rulers, Lean}
+}
+
+\setlist{nosep,leftmargin=2em}
+\numberwithin{equation}{section}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\ceil}[1]{\left\lceil #1\right\rceil}
+\newcommand{\floor}[1]{\left\lfloor #1\right\rfloor}
+\newcommand{\eps}{\varepsilon}
+
+\title{\bfseries An adaptive packing bound\\
+for distinct consecutive sums}
+\author{AUTHOR NAME\\\small (replace before release)}
+\date{Preprint draft, July 26, 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Let \(f(n)\) be the largest \(k\) for which there are integers
+\[
+  1\leq a_1<\cdots<a_k\leq n
+\]
+such that all nonempty consecutive sums
+\(\sum_{i=u}^{v}a_i\) are distinct.  Erd\H{o}s asked whether
+\(f(n)=o(n)\).  We prove an adaptive finite inequality which, after
+optimization, gives
+\[
+  f(n)\leq \frac n2+
+  \left(\frac{9}{2^{7/3}}+o(1)\right)n^{2/3}.
+\]
+In particular, \(f(n)\leq (1/2+o(1))n\).  The proof attaches to each
+starting value \(a_i\) a block of length
+\(\ceil{n/(2a_i)}\).  Most of the resulting sums lie in an interval of
+length \(n/2+O(n^{2/3})\); a telescoping estimate controls the starts
+for which the block deviates too far from its initial value.  The
+stated finite combinatorial inequality has also been encoded in
+Lean~4, and the accompanying repository supplies an automated kernel
+check.
+\end{abstract}
+
+\noindent\textbf{2020 Mathematics Subject Classification.}
+11B75, 05D05.
+
+\smallskip
+\noindent\textbf{Keywords.}
+Consecutive sums, additive combinatorics, Sidon sets, Golomb rulers,
+formal verification.
+
+\section{Introduction}
+
+For a positive integer \(n\), let \(f(n)\) denote the maximum length of
+a strictly increasing sequence
+\[
+  1\leq a_1<\cdots<a_k\leq n
+\]
+for which the sums
+\begin{equation}
+  A(u,v):=\sum_{i=u}^{v}a_i,
+  \qquad 1\leq u\leq v\leq k,
+  \label{eq:block-sums}
+\end{equation}
+are pairwise distinct.  Erd\H{o}s's 1977 paper asks a related
+infinite-density question \cite{Erdos1977}.  The finite formulation
+above is attributed to Erd\H{o}s and Harzheim and asks whether
+\(f(n)=o(n)\); see Erd\H{o}s Problem~357
+\cite{ErdosProblems357} and the problem collection of Erd\H{o}s and
+Graham \cite{ErdosGraham1980}.
+
+There is a useful additive reformulation.  Put \(s_0=0\) and
+\(s_j=a_1+\cdots+a_j\).  The distinctness requirement says that all
+positive differences \(s_v-s_u\), \(0\leq u<v\leq k\), are distinct.
+Thus \(\{s_0,\ldots,s_k\}\) is a Golomb ruler, or a Sidon set in the
+difference sense.  Moreover, its successive gaps \(a_1,\ldots,a_k\)
+are strictly increasing, a configuration often called convex in
+additive combinatorics.  The parameter \(n\) bounds the largest
+successive gap rather than the diameter.
+
+Known constructions give \cite{ErdosProblems357}
+\[
+  f(n)\geq (2+o(1))\sqrt n;
+\]
+computed initial values are recorded as OEIS A364132
+\cite{OEISA364132}.  Thus the known upper and lower bounds remain far
+apart.
+
+Hegyv\'ari \cite{Hegyvari1986} studied the corresponding problem
+without the monotonicity requirement and obtained a \(2n/3+o(n)\)
+upper bound.  A theorem of Coppersmith and Phillips
+\cite{CoppersmithPhillips1996}, proved under the weaker restriction
+that no consecutive sum of at least two terms equals a later term,
+implies
+\begin{equation}
+  f(n)\leq
+  \left(\frac23-\frac1{512}\right)n+O(\log n).
+  \label{eq:previous-bound}
+\end{equation}
+Indeed, pairwise distinct consecutive sums forbid such an equality.
+More recently, Konieczny \cite{Konieczny2021} studied the number of
+distinct consecutive sums in permutations, and Beker
+\cite{Beker2024} studied the number of distinct values obtainable from
+increasing sequences.  Those questions do not require every
+consecutive sum to be different.
+
+Our argument uses the strict increase of the \(a_i\)'s through an
+adaptive choice of block length.  For a start \(i\), take
+\begin{equation}
+  r_i:=\ceil{\frac{n}{2a_i}}.
+  \label{eq:adaptive-length}
+\end{equation}
+The main point is that \(r_i a_i\) always lies between \(n/2\) and
+\(n\).  If a block of length \(r_i\) does not vary too much, its sum
+therefore lies in a common interval of approximately \(n/2\) integer
+values.  The lengths \(r_i\) are nonincreasing.  Within one fixed
+length class, a telescoping argument bounds the \emph{total} variation
+of all retained blocks, independently of the number of starts in the
+class.
+
+The resulting estimate still has leading term \(n/2\), so it does not
+resolve the conjecture \(f(n)=o(n)\).  It does, however, improve the
+previously available leading constant in \eqref{eq:previous-bound}.
+More precisely, our main asymptotic consequence is
+\[
+  f(n)\leq \frac n2+\frac{9}{2^{7/3}}n^{2/3}+O(n^{1/3}).
+\]
+To the best of our knowledge, neither the adaptive finite inequality
+below nor this leading constant has appeared previously.
+
+\section{The finite adaptive bound}
+
+We first state the parameterized form.  All divisions inside floor
+symbols are ordinary real divisions.
+
+\begin{theorem}[Finite adaptive inequality]
+\label{thm:finite}
+Let \(n,k,R,T\) be positive integers, and suppose that
+\(1\leq a_1<\cdots<a_k\leq n\) has pairwise distinct nonempty
+consecutive sums.  Then
+\begin{align}
+  k\leq {}&
+  \floor{\frac{n+2T+2}{2}}
+  +\floor{\frac{n+2R}{2R}}
+  +\frac{R(R-1)}{2}
+  +\floor{\frac{n(R-1)}{4T}}.
+  \label{eq:finite-bound}
+\end{align}
+\end{theorem}
+
+We prove the theorem by separating the starts into good starts and
+three families of exceptions.
+
+\subsection{Adaptive lengths and length classes}
+
+For \(1\leq i\leq k\), define \(r_i\) by
+\eqref{eq:adaptive-length}.  The elementary properties of the ceiling
+function give
+\begin{align}
+  n&\leq 2a_i r_i, \label{eq:ceil-lower}\\
+  2a_i(r_i-1)&<n \quad\text{if \(r_i>1\)}.
+  \label{eq:ceil-upper}
+\end{align}
+We will also use
+\begin{equation}
+  r_i a_i\leq n.
+  \label{eq:base-upper}
+\end{equation}
+For \(r_i=1\), this is just \(a_i\leq n\).  If \(r_i>1\), then
+\(a_i\leq a_i(r_i-1)\), and hence
+\[
+  r_i a_i=a_i(r_i-1)+a_i
+  \leq 2a_i(r_i-1)<n
+\]
+by \eqref{eq:ceil-upper}.  Since the \(a_i\)'s increase, the \(r_i\)'s
+are nonincreasing.
+
+Fix a cutoff \(R\).  Call a start \(i\) \emph{small-valued} if
+\(r_i>R\), and denote the set of such starts by \(X\).
+For \(i\in X\), the definition of the ceiling gives
+\[
+  2Ra_i<n.
+\]
+The values \(a_i\), \(i\in X\), are distinct positive integers and
+each is at most
+\[
+  Q:=\floor{\frac{n+2R}{2R}}.
+\]
+Consequently
+\begin{equation}
+  |X|\leq \floor{\frac{n+2R}{2R}}.
+  \label{eq:small-count}
+\end{equation}
+The deliberately loose extra \(2R\) in this estimate is retained to
+match the integral formal statement.
+
+For \(1\leq r\leq R\), let
+\[
+  C_r:=\{i:r_i=r\}.
+\]
+Because the \(r_i\)'s are nonincreasing, every nonempty \(C_r\) is an
+interval of indices.  Write its first and last indices as
+\(\ell_r\) and \(M_r\).  The boundary of \(C_r\) consists of those
+starts \(i\in C_r\) for which \(i+r-1>M_r\).  There are at most
+\(r-1\) such starts.  Summing over the classes gives
+\begin{equation}
+  \#\{\text{boundary starts}\}
+  \leq \sum_{r=1}^{R}(r-1)
+  =\frac{R(R-1)}2.
+  \label{eq:boundary-count}
+\end{equation}
+
+The remaining starts in \(C_r\) form its interior:
+\[
+  I_r:=\{i\in C_r:i+r-1\leq M_r\}.
+\]
+If \(i\in I_r\), then every index \(i,i+1,\ldots,i+r-1\)
+belongs to \(C_r\).  Indeed, for \(i\leq j\leq M_r\), monotonicity
+gives \(r_{M_r}\leq r_j\leq r_i\), and both endpoints equal \(r\).
+In particular, the length-\(r\) block beginning at an interior start
+is contained in the original sequence.
+
+\subsection{The class error estimate}
+
+For \(i\in I_r\), define the block error
+\begin{equation}
+  E_i^{(r)}
+  :=\sum_{t=0}^{r-1}(a_{i+t}-a_i).
+  \label{eq:error}
+\end{equation}
+Thus the corresponding block sum is
+\begin{equation}
+  \sum_{t=0}^{r-1}a_{i+t}
+  =r a_i+E_i^{(r)}.
+  \label{eq:block-decomposition}
+\end{equation}
+
+\begin{lemma}[Telescoping within one class]
+\label{lem:class-error}
+For every \(r\geq1\),
+\begin{equation}
+  4\sum_{i\in I_r}E_i^{(r)}\leq n.
+  \label{eq:class-error-bound}
+\end{equation}
+\end{lemma}
+
+\begin{proof}
+There is nothing to prove if \(I_r\) is empty.  Otherwise set
+\[
+  \ell=\ell_r,\qquad M=M_r,\qquad
+  L=a_\ell,\qquad U=a_M.
+\]
+Then \(I_r=\{\ell,\ell+1,\ldots,M-r+1\}\).
+For \(0\leq t\leq r-1\), cancellation of the common middle terms
+gives
+\begin{align*}
+  \sum_{i=\ell}^{M-r+1}(a_{i+t}-a_i)
+  &=
+  \sum_{j=M-r+2}^{M-r+1+t}a_j
+  -\sum_{j=\ell}^{\ell+t-1}a_j\\
+  &\leq t(U-L).
+\end{align*}
+Here an empty sum is interpreted as zero.  Summing in \(t\), and
+interchanging the two finite sums, yields
+\begin{equation}
+  \sum_{i\in I_r}E_i^{(r)}
+  \leq \frac{r(r-1)}2\,(U-L).
+  \label{eq:error-before-width}
+\end{equation}
+
+It remains to control the width \(U-L\) of the class.  If \(r=1\),
+the right-hand side of \eqref{eq:error-before-width} is zero.  Assume
+\(r>1\).  Applying \eqref{eq:ceil-lower} at \(\ell\) and
+\eqref{eq:ceil-upper} at \(M\) gives
+\[
+  n\leq2Lr,\qquad 2U(r-1)<n.
+\]
+After multiplying the second inequality by \(r\), and the first by
+\(r-1\), we obtain
+\[
+  2r(r-1)(U-L)<nr-n(r-1)=n.
+\]
+Combining this with \eqref{eq:error-before-width} proves
+\eqref{eq:class-error-bound}.
+\end{proof}
+
+Call an interior start \(i\in I_r\) \emph{bad} if
+\(E_i^{(r)}>T\).  Let \(D_r\) denote the bad starts in class \(r\).
+Since all errors are nonnegative, \cref{lem:class-error} gives
+\[
+  4T|D_r|
+  \leq4\sum_{i\in D_r}E_i^{(r)}
+  \leq4\sum_{i\in I_r}E_i^{(r)}
+  \leq n.
+\]
+For \(r=1\) the error is identically zero, so \(D_1\) is empty.
+The length classes are disjoint.  Summing the preceding inequality
+over \(r=2,\ldots,R\) gives
+\[
+  4T\,\#\{\text{bad starts}\}\leq n(R-1),
+\]
+and therefore
+\begin{equation}
+  \#\{\text{bad starts}\}
+  \leq
+  \floor{\frac{n(R-1)}{4T}}.
+  \label{eq:bad-count}
+\end{equation}
+
+\subsection{Packing the good block sums}
+
+Every start not already counted in \eqref{eq:small-count},
+\eqref{eq:boundary-count}, or \eqref{eq:bad-count} is called
+\emph{good}.  If \(i\) is good, its block length is \(r_i\), its block
+is contained in the sequence, and its error is at most \(T\).
+Equations \eqref{eq:ceil-lower} and \eqref{eq:base-upper} imply
+\[
+  \ceil{\frac n2}\leq r_i a_i\leq n.
+\]
+Together with \eqref{eq:block-decomposition}, this gives
+\begin{equation}
+  \ceil{\frac n2}
+  \leq \sum_{t=0}^{r_i-1}a_{i+t}
+  \leq n+T.
+  \label{eq:good-interval}
+\end{equation}
+
+The blocks attached to distinct good starts are distinct blocks, and
+all consecutive block sums were assumed pairwise distinct.
+Consequently, the sums in \eqref{eq:good-interval} are distinct
+integers.  The interval there contains
+\[
+  n+T-\ceil{\frac n2}+1
+  =\floor{\frac{n+2T+2}{2}}
+\]
+integers.  Thus
+\begin{equation}
+  \#\{\text{good starts}\}
+  \leq\floor{\frac{n+2T+2}{2}}.
+  \label{eq:good-count}
+\end{equation}
+
+Every start is good, small-valued, a class-boundary start, or bad.
+Adding \eqref{eq:small-count}, \eqref{eq:boundary-count},
+\eqref{eq:bad-count}, and \eqref{eq:good-count} proves
+\cref{thm:finite}.
+
+\section{Consequences and optimization}
+
+Applying \cref{thm:finite} to a sequence of maximum length immediately
+gives the same inequality with \(k\) replaced by \(f(n)\).
+
+\begin{corollary}[A simple cube-scale bound]
+\label{cor:cube}
+If \(m\geq1\) and \(n\leq m^3\), then
+\begin{equation}
+  f(n)\leq \frac n2+\frac94m^2+2.
+  \label{eq:simple-cube}
+\end{equation}
+In particular, for \(m=\ceil{n^{1/3}}\),
+\[
+  f(n)\leq\frac n2+\frac94n^{2/3}+O(n^{1/3}).
+\]
+\end{corollary}
+
+\begin{proof}
+Take \(R=m\) and \(T=m^2\) in \cref{thm:finite}, discard the
+floors, and use \(n\leq m^3\).  The four contributions beyond \(n/2\)
+are at most
+\[
+  m^2+1,\qquad
+  \frac{m^2}{2}+1,\qquad
+  \frac{m^2}{2},\qquad
+  \frac{m^2}{4},
+\]
+respectively.
+\end{proof}
+
+The two free parameters permit a better constant.
+
+\begin{corollary}[Optimized asymptotic form]
+\label{cor:optimized}
+As \(n\to\infty\),
+\begin{equation}
+  f(n)\leq\frac n2+
+  \frac{9}{2^{7/3}}\,n^{2/3}
+  +O(n^{1/3}).
+  \label{eq:optimized}
+\end{equation}
+In particular,
+\[
+  f(n)\leq\left(\frac12+o(1)\right)n.
+\]
+\end{corollary}
+
+\begin{proof}
+For fixed \(c,t>0\), take
+\[
+  R=\ceil{c\,n^{1/3}},
+  \qquad
+  T=\ceil{t\,n^{2/3}}.
+\]
+The finite inequality gives
+\begin{align*}
+  f(n)
+  \leq \frac n2+
+  \left(
+    t+\frac1{2c}+\frac{c^2}{2}+\frac{c}{4t}
+  \right)n^{2/3}
+  +O(n^{1/3}).
+\end{align*}
+For fixed \(c\), the expression is minimized in \(t\) at
+\(t=\sqrt{c}/2\).  It then becomes
+\[
+  \sqrt{c}+\frac1{2c}+\frac{c^2}{2}.
+\]
+Writing \(y=c^{3/2}\), the critical-point equation is
+\[
+  2y^2+y-1=0,
+\]
+whose positive solution is \(y=1/2\).  Thus
+\[
+  c=2^{-2/3},\qquad t=2^{-4/3},
+\]
+and the resulting coefficient is
+\[
+  2^{-1/3}+2^{-1/3}+2^{-7/3}
+  =\frac{9}{2^{7/3}}.
+\]
+The objective tends to infinity as \(c\) tends to either \(0\) or
+\(\infty\), so this critical point gives the global minimum.
+\end{proof}
+
+\begin{remark}
+Numerically, \(9/2^{7/3}\approx1.7858\).  The secondary-term
+optimization does not change the central obstruction: the good block
+sums occupy an interval with asymptotic length \(n/2\).  Within this
+packing framework, a proof of \(f(n)=o(n)\) would therefore need an
+additional idea that substantially reduces, or exploits the
+distribution of, those good sums.
+\end{remark}
+
+\section{Formal development and verification protocol}
+
+The finite inequality \eqref{eq:finite-bound} was formalized in
+Lean~4 using natural-number arithmetic throughout.  The formal
+statement uses a function \(a:\operatorname{Fin}(k)\to\mathbb Z\),
+the range condition \(a_i\in[1,n]\), strict monotonicity, and
+injectivity of the sum map on order-connected finite subsets.  These
+are the same data used in the Formal Conjectures formulation of
+Erd\H{o}s Problem~357 \cite{FormalConjectures}.
+
+The formal development constructs four finite sets corresponding to
+the good, small-valued, boundary, and bad starts.  Its key
+denominator-free estimates are
+\begin{align*}
+  2|G|&\leq n+2T+2,\\
+  2R|X|&\leq n+2R,\\
+  2|B|&\leq R(R-1),\\
+  4T|D|&\leq n(R-1).
+\end{align*}
+It then derives \eqref{eq:finite-bound} by integer division.  As a
+convenient fully integral specialization, the formal file also proves
+that, whenever \(n\leq m^3\),
+\begin{equation}
+  2f(n)\leq n+8m^2+4.
+  \label{eq:lean-cube}
+\end{equation}
+This last displayed estimate is deliberately coarser than
+\cref{cor:cube}; its role is to provide a short exact certificate of
+the \(n/2+O(n^{2/3})\) scale.
+
+The accompanying source file is
+\texttt{Erdos357AdaptiveBound.lean}.  It contains 1841 lines, and a
+static source audit finds no proof placeholder, user-declared axiom, or
+unsafe declaration.  The repository pins Lean~4.27.0 and
+mathlib~v4.27.0.  Its continuous-integration workflow builds the
+project and invokes an additional checker; the repository's
+\texttt{VERIFICATION.md} records the source digest and the distinction
+between static, typesetting, and kernel checks.  A public repository
+URL and a green continuous-integration run should be cited in the
+released version.
+
+\section{Concluding remarks}
+
+The argument is driven by two elementary features that work together:
+the adaptive base term \(r_i a_i\) is automatically in
+\([\ceil{n/2},n]\), while the total block error in a fixed length class
+telescopes to a bound depending only on the width of that class.
+The relation
+\[
+  2r(r-1)(U-L)<n
+\]
+is precisely what cancels the quadratic triangular factor produced by
+the block errors.
+
+Several natural questions remain.  Can one show that the good sums
+avoid a positive proportion of
+\([\ceil{n/2},n+T]\)?  Can information from different adaptive length
+classes be combined, rather than treating their sums only as a single
+injective family?  Finally, can the convex-Sidon interpretation supply
+additional restrictions on how these differences are distributed?
+Any improvement of the leading \(1/2\) appears to require progress on
+one of these points.
+
+\section*{Disclosure}
+
+This manuscript and its repository documentation were drafted and
+edited with assistance from OpenAI language models, starting from the
+supplied Lean development.  The named human author or authors are
+responsible for independently checking the mathematical exposition and
+for every submitted claim.  The Lean kernel and the additional checker,
+not a language model, provide the machine-verification steps.  This
+disclosure should be revised, if necessary, to comply with the selected
+journal's current policy.
+
+\begin{thebibliography}{99}
+
+\bibitem{Beker2024}
+A.~Beker,
+\newblock On a problem of Erd\H{o}s and Graham about consecutive sums
+in strictly increasing sequences,
+\newblock \emph{Bull. Lond. Math. Soc.} \textbf{56} (2024), no.~8,
+2749--2759.
+\newblock \url{https://doi.org/10.1112/blms.13098}.
+
+\bibitem{CoppersmithPhillips1996}
+D.~Coppersmith and S.~Phillips,
+\newblock On a question of Erd\H{o}s on subsequence sums,
+\newblock \emph{SIAM J. Discrete Math.} \textbf{9} (1996), no.~2,
+173--177.
+\newblock \url{https://doi.org/10.1137/S0895480193244139}.
+
+\bibitem{Erdos1977}
+P.~Erd\H{o}s,
+\newblock Problems and results on combinatorial number theory III,
+\newblock in \emph{Number Theory Day}, Lecture Notes in Mathematics
+626, Springer, Berlin, 1977, pp.~43--72.
+\newblock \url{https://www.renyi.hu/~p_erdos/1977-27.pdf}.
+
+\bibitem{ErdosProblems357}
+T.~Bloom and T.~Tao (maintainers),
+\newblock Erd\H{o}s Problem 357,
+\newblock \emph{Erd\H{o}s Problems database}, accessed July 26, 2026.
+\newblock \url{https://www.erdosproblems.com/357}.
+
+\bibitem{ErdosGraham1980}
+P.~Erd\H{o}s and R.~L. Graham,
+\newblock \emph{Old and New Problems and Results in Combinatorial
+Number Theory},
+\newblock Monographies de L'Enseignement Math\'ematique 28,
+Universit\'e de Gen\`eve, 1980.
+
+\bibitem{FormalConjectures}
+M.~Firsching, P.~Lezeau, S.~Mercuri, et al.,
+\newblock Formal Conjectures: an open and evolving benchmark for
+verified discovery in mathematics,
+\newblock arXiv:2605.13171, 2026.
+\newblock See the
+\href{https://github.com/google-deepmind/formal-conjectures/blob/c252a41054125b5fd9c8356e2137cd9b55337657/FormalConjectures/ErdosProblems/357.lean}
+{Problem~357 source pinned at commit \texttt{c252a410}}.
+
+\bibitem{Hegyvari1986}
+N.~Hegyv\'ari,
+\newblock On consecutive sums in sequences,
+\newblock \emph{Acta Math. Hungar.} \textbf{48} (1986), no.~1--2,
+193--200.
+\newblock \url{https://doi.org/10.1007/BF01949064}.
+
+\bibitem{Konieczny2021}
+J.~Konieczny,
+\newblock On consecutive sums in permutations,
+\newblock \emph{J. Comb.} \textbf{12} (2021), no.~3, 413--477.
+\newblock \url{https://doi.org/10.4310/JOC.2021.v12.n3.a3}.
+
+\bibitem{OEISA364132}
+OEIS Foundation Inc.,
+\newblock Entry A364132,
+\newblock \emph{The On-Line Encyclopedia of Integer Sequences},
+accessed July 26, 2026.
+\newblock \url{https://oeis.org/A364132}.
+
+\end{thebibliography}
+
+\end{document}

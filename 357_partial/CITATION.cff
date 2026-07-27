@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: "If you use this formalization or bound, please cite the manuscript and archived release."
+title: "An adaptive packing bound for distinct consecutive sums"
+type: software
+authors:
+  - family-names: "REPLACE_ME"
+    given-names: "AUTHOR"
+version: "0.1.0"
+date-released: "2026-07-26"
+repository-code: "https://github.com/REPLACE_ME/Erdos357AdaptiveBound"
+url: "https://github.com/REPLACE_ME/Erdos357AdaptiveBound"
+license: Apache-2.0
+abstract: >-
+  Lean 4 formalization and accompanying manuscript for an adaptive
+  packing inequality related to Erdos Problem 357.
+keywords:
+  - "Erdos Problem 357"
+  - "consecutive sums"
+  - "additive combinatorics"
+  - "Lean 4"
+preferred-citation:
+  type: article
+  title: "An adaptive packing bound for distinct consecutive sums"
+  authors:
+    - family-names: "REPLACE_ME"
+      given-names: "AUTHOR"
+  year: 2026
+  url: "https://github.com/REPLACE_ME/Erdos357AdaptiveBound"
